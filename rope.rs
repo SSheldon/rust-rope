@@ -215,26 +215,26 @@ impl Rope {
     /// assert!(rope.substring(2, 4).equiv(&"cd"));
     /// ```
     #[inline]
-    pub fn substring<'r>(&'r self, start: uint, end: uint) -> MaybeOwned<'r> {
+    pub fn substring(&self, start: uint, end: uint) -> MaybeOwned {
         assert!(start <= end && end <= self.len());
         self.root.substring(start, end, None)
     }
 
     /// Returns an iterator over the strings of the `Rope`.
     #[inline]
-    pub fn strings<'r>(&'r self) -> RopeStrings<'r> {
+    pub fn strings(&self) -> RopeStrings {
         RopeStrings { stack: vec!(&self.root) }
     }
 
     /// Returns an iterator over the `char`s of the `Rope`.
     #[inline]
-    pub fn chars<'r>(&'r self) -> RopeChars<'r> {
+    pub fn chars(&self) -> RopeChars {
         self.strings().flat_map(|s| s.chars())
     }
 
     /// Returns an iterator over the bytes of the `Rope`.
     #[inline]
-    pub fn bytes<'r>(&'r self) -> RopeBytes<'r> {
+    pub fn bytes(&self) -> RopeBytes {
         self.strings().flat_map(|s| s.bytes())
     }
 
@@ -377,8 +377,8 @@ impl Node {
         }
     }
 
-    fn substring<'r>(&'r self, start: uint, end: uint, prefix: Option<String>)
-        -> MaybeOwned<'r> {
+    fn substring(&self, start: uint, end: uint, prefix: Option<String>)
+        -> MaybeOwned {
         match *self {
             Nil => {
                 match prefix {
@@ -455,8 +455,8 @@ impl Concat {
     }
 
     #[inline]
-    fn substring<'r>(&'r self, start: uint, end: uint, prefix: Option<String>)
-        -> MaybeOwned<'r> {
+    fn substring(&self, start: uint, end: uint, prefix: Option<String>)
+        -> MaybeOwned {
         let left_len = self.left.len();
         if end <= left_len {
             // Substring lies entirely in the left child
@@ -484,7 +484,7 @@ pub struct RopeStrings<'a> {
     stack: Vec<&'a Node>,
 }
 
-impl <'a> Iterator<&'a str> for RopeStrings<'a> {
+impl<'a> Iterator<&'a str> for RopeStrings<'a> {
     fn next(&mut self) -> Option<&'a str> {
         loop {
             match self.stack.pop() {
