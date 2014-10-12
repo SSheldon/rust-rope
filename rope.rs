@@ -238,6 +238,12 @@ impl Rope {
         self.strings().flat_map(|s| s.bytes())
     }
 
+    /// Returns a consuming iterator over the strings of the `Rope`.
+    #[inline]
+    pub fn into_strings(self) -> RopeMoveStrings {
+        RopeMoveStrings { stack: vec!(self.root) }
+    }
+
     /// Compares the `Rope` against the `bytes` with the given `len`.
     fn cmp_bytes<T: Iterator<u8>>(&self, bytes: T, len: uint) -> Ordering {
         for (s_b, o_b) in self.bytes().zip(bytes) {
@@ -506,6 +512,28 @@ pub type RopeChars<'a> = FlatMap<'a, &'a str, RopeStrings<'a>, Chars<'a>>;
 /// Iterator over the bytes of a `Rope`.
 pub type RopeBytes<'a> = FlatMap<'a, &'a str, RopeStrings<'a>, Bytes<'a>>;
 
+/// Move iterator over the strings of a `Rope`.
+pub struct RopeMoveStrings {
+    stack: Vec<Node>,
+}
+
+impl Iterator<String> for RopeMoveStrings {
+    fn next(&mut self) -> Option<String> {
+        loop {
+            match self.stack.pop() {
+                None => return None,
+                Some(Nil) => (),
+                Some(Leaf(s)) => return Some(s),
+                Some(Branch(box Concat { left: l, right: r, .. })) => {
+                    self.stack.push(r);
+                    self.stack.push(l);
+                }
+            }
+        }
+    }
+}
+
+
 #[cfg(test)]
 mod tests {
     use super::Rope;
@@ -634,6 +662,15 @@ mod tests {
         let rope = example_rope();
         assert_eq!(rope.chars().count(), 8);
         assert!(rope.chars().zip("abcdefgh".chars()).all(|(a, b)| a == b));
+    }
+
+    #[test]
+    fn test_into_strings_iter() {
+        let rope = example_rope();
+        let strings: Vec<String> = rope.into_strings().collect();
+        let expected = vec!["ab".to_string(), "cdef".to_string(),
+            "gh".to_string()];
+        assert_eq!(strings, expected);
     }
 
     #[test]
