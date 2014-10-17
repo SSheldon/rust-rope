@@ -217,7 +217,23 @@ impl Rope {
     #[inline]
     pub fn substring(&self, start: uint, end: uint) -> MaybeOwned {
         assert!(start <= end && end <= self.len());
-        self.root.substring(start, end, None)
+        let mut substrings = RopeSubstrings::new(&self.root, start, end);
+        let first = match substrings.next() {
+            None => return Slice(""),
+            Some(s) => s,
+        };
+        match substrings.next() {
+            None => Slice(first),
+            Some(second) => {
+                let mut result = String::with_capacity(end - start);
+                result.push_str(first);
+                result.push_str(second);
+                for part in substrings {
+                    result.push_str(part);
+                }
+                Owned(result)
+            }
+        }
     }
 
     /// Returns an iterator over the strings of the `Rope`.
@@ -383,29 +399,6 @@ impl Node {
         }
     }
 
-    fn substring(&self, start: uint, end: uint, prefix: Option<String>)
-        -> MaybeOwned {
-        match *self {
-            Nil => {
-                match prefix {
-                    None => Slice(""),
-                    Some(p) => Owned(p),
-                }
-            }
-            Leaf(ref s) => {
-                let slice = s.as_slice().slice(start, end);
-                match prefix {
-                    None => Slice(slice),
-                    Some(mut p) => {
-                        p.push_str(slice);
-                        Owned(p)
-                    }
-                }
-            }
-            Branch(ref cat) => cat.substring(start, end, prefix),
-        }
-    }
-
     #[inline]
     fn len(&self) -> uint {
         match *self {
@@ -458,30 +451,6 @@ impl Concat {
         self.right = rl;
         self.update();
         rr
-    }
-
-    #[inline]
-    fn substring(&self, start: uint, end: uint, prefix: Option<String>)
-        -> MaybeOwned {
-        let left_len = self.left.len();
-        if end <= left_len {
-            // Substring lies entirely in the left child
-            self.left.substring(start, end, prefix)
-        } else if start >= left_len {
-            // Substring lies entirely in the right child
-            self.right.substring(start - left_len, end - left_len, prefix)
-        } else {
-            // Substring is split across multiple children
-            // We'll need an owned string, so create one if we haven't already
-            let p = match prefix {
-                None => String::with_capacity(end - start),
-                Some(p) => p,
-            };
-            let left_str = self.left.substring(start, left_len, Some(p));
-            // Use result from left child as the prefix for the right child
-            let p = left_str.into_string();
-            self.right.substring(0, end - left_len, Some(p))
-        }
     }
 }
 
@@ -538,6 +507,12 @@ pub struct RopeSubstrings<'a> {
     start: uint,
     end: uint,
     stack: Vec<(uint, &'a Node)>,
+}
+
+impl<'a> RopeSubstrings<'a> {
+    fn new(root: &Node, start: uint, end: uint) -> RopeSubstrings {
+        RopeSubstrings { start: start, end: end, stack: vec![(0, root)] }
+    }
 }
 
 impl<'a> Iterator<&'a str> for RopeSubstrings<'a> {
