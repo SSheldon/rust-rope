@@ -533,6 +533,43 @@ impl Iterator<String> for RopeMoveStrings {
     }
 }
 
+/// Iterator over the strings of a `Rope`.
+pub struct RopeSubstrings<'a> {
+    start: uint,
+    end: uint,
+    stack: Vec<(uint, &'a Node)>,
+}
+
+impl<'a> Iterator<&'a str> for RopeSubstrings<'a> {
+    fn next(&mut self) -> Option<&'a str> {
+        loop {
+            let (offset, node) = match self.stack.pop() {
+                None => return None,
+                Some(x) => x,
+            };
+            // Clamp start and end within the node's bounds
+            let len = node.len();
+            let start = if self.start < offset { 0 }
+                        else { self.start - offset };
+            let end = if self.end > offset + len { len }
+                      else { self.end - offset };
+            match *node {
+                Nil => (),
+                Leaf(ref s) => return Some(s.as_slice().slice(start, end)),
+                Branch(ref cat) => {
+                    let left_len = cat.left.len();
+                    if end > left_len {
+                        self.stack.push((offset + left_len, &cat.right));
+                    }
+                    if start < left_len {
+                        self.stack.push((offset, &cat.left));
+                    }
+                }
+            }
+        }
+    }
+}
+
 
 #[cfg(test)]
 mod tests {
