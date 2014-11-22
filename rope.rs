@@ -7,6 +7,8 @@ use std::fmt;
 use std::mem;
 use std::str::{Bytes, Chars, MaybeOwned, Owned, Slice};
 
+use self::Node::{Nil, Leaf, Branch};
+
 /// A `Rope` is a tree of `String`s that allows more efficient storage and
 /// manipulation of large amounts of text than a `String`.
 pub struct Rope {
@@ -271,18 +273,14 @@ impl Rope {
         }
         self.len().cmp(&len)
     }
-}
 
-impl Collection for Rope {
     #[inline]
-    fn len(&self) -> uint {
+    pub fn len(&self) -> uint {
         self.root.len()
     }
-}
 
-impl Mutable for Rope {
     #[inline]
-    fn clear(&mut self) {
+    pub fn clear(&mut self) {
         self.take_root();
     }
 }
