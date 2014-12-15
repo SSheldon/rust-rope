@@ -6,3 +6,4 @@ authors = ["Steven Sheldon"]
 [lib]
 name = "rope"
 path = "rope.rs"
+doctest = false

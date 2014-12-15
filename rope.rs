@@ -1,11 +1,14 @@
+#![feature(default_type_params)]
+
 //! A rope for efficiently storing and manipulating large amounts of text.
 
+use std::borrow::Cow;
 use std::cmp::max;
 use std::default::Default;
 use std::iter::FlatMap;
 use std::fmt;
 use std::mem;
-use std::str::{Bytes, Chars, MaybeOwned, Owned, Slice};
+use std::str::{Bytes, Chars, CowString};
 
 use self::Node::{Nil, Leaf, Branch};
 
@@ -50,7 +53,7 @@ impl Rope {
     /// ``` rust
     /// let mut rope = Rope::from_string("ab".to_string());
     /// rope.append_string("cd".to_string());
-    /// assert!(rope.equiv(&"abcd"));
+    /// assert!(&rope == "abcd");
     /// ```
     #[inline]
     pub fn append_string(&mut self, string: String) {
@@ -73,7 +76,7 @@ impl Rope {
     /// ``` rust
     /// let mut rope = Rope::from_string("ab".to_string());
     /// rope.prepend_string("cd".to_string());
-    /// assert!(rope.equiv(&"cdab"));
+    /// assert!(&rope == "cdab");
     /// ```
     #[inline]
     pub fn prepend_string(&mut self, string: String) {
@@ -93,8 +96,8 @@ impl Rope {
     /// ``` rust
     /// let rope = Rope::from_string("abcd".to_string());
     /// let (left, right) = rope.split(2);
-    /// assert!(left.equiv(&"ab"));
-    /// assert!(right.equiv(&"cd"));
+    /// assert!(&left == "ab");
+    /// assert!(&right == "cd");
     /// ```
     #[inline]
     pub fn split(self, index: uint) -> (Rope, Rope) {
@@ -136,7 +139,7 @@ impl Rope {
     /// ``` rust
     /// let mut rope = Rope::from_string("ab".to_string());
     /// rope.insert_string(1, "cd".to_string());
-    /// assert!(rope.equiv(&"acdb"));
+    /// assert!(&rope == "acdb");
     /// ```
     #[inline]
     pub fn insert_string(&mut self, index: uint, string: String) {
@@ -157,7 +160,7 @@ impl Rope {
     /// ``` rust
     /// let mut rope = Rope::from_string("abcd".to_string());
     /// rope.delete(1, 3);
-    /// assert!(rope.equiv(&"ad"));
+    /// assert!(&rope == "ad");
     /// ```
     pub fn delete(&mut self, start: uint, end: uint) -> Rope {
         assert!(start <= end && end <= self.len());
@@ -189,7 +192,7 @@ impl Rope {
     /// ``` rust
     /// let mut rope = Rope::from_string("abcd".to_string());
     /// rope.truncate(1, 3);
-    /// assert!(rope.equiv(&"bc"));
+    /// assert!(&rope == "bc");
     /// ```
     pub fn truncate(&mut self, start: uint, end: uint) -> (Rope, Rope) {
         assert!(start <= end && end <= self.len());
@@ -213,19 +216,19 @@ impl Rope {
     ///
     /// ``` rust
     /// let rope = Rope::from_string("abcd".to_string());
-    /// assert!(rope.substring(0, 2).equiv(&"ab"));
-    /// assert!(rope.substring(2, 4).equiv(&"cd"));
+    /// assert!(rope.substring(0, 2) == "ab");
+    /// assert!(rope.substring(2, 4) == "cd");
     /// ```
     #[inline]
-    pub fn substring(&self, start: uint, end: uint) -> MaybeOwned {
+    pub fn substring(&self, start: uint, end: uint) -> CowString {
         assert!(start <= end && end <= self.len());
         let mut substrings = RopeSubstrings::new(&self.root, start, end);
         let first = match substrings.next() {
-            None => return Slice(""),
+            None => return Cow::Borrowed(""),
             Some(s) => s,
         };
         match substrings.next() {
-            None => Slice(first),
+            None => Cow::Borrowed(first),
             Some(second) => {
                 let mut result = String::with_capacity(end - start);
                 result.push_str(first);
@@ -233,7 +236,7 @@ impl Rope {
                 for part in substrings {
                     result.push_str(part);
                 }
-                Owned(result)
+                Cow::Owned(result)
             }
         }
     }
@@ -295,7 +298,7 @@ impl Ord for Rope {
 impl PartialOrd for Rope {
     #[inline]
     fn partial_cmp(&self, other: &Rope) -> Option<Ordering> {
-        Some(self.cmp_bytes(other.bytes(), other.len()))
+        Some(self.cmp(other))
     }
 }
 
@@ -308,19 +311,33 @@ impl PartialEq for Rope {
     }
 }
 
+impl Ord<str> for Rope {
+    #[inline]
+    fn cmp(&self, other: &str) -> Ordering {
+        self.cmp_bytes(other.bytes(), other.len())
+    }
+}
+
+impl PartialOrd<str> for Rope {
+    #[inline]
+    fn partial_cmp(&self, other: &str) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Eq<str> for Rope { }
+
+impl PartialEq<str> for Rope {
+    #[inline]
+    fn eq(&self, other: &str) -> bool {
+        self.len() == other.len() && self.cmp(other) == Equal
+    }
+}
+
 impl Default for Rope {
     #[inline]
     fn default() -> Rope {
         Rope::new()
-    }
-}
-
-impl<S: Str> Equiv<S> for Rope {
-    #[inline]
-    fn equiv(&self, other: &S) -> bool {
-        let slice = other.as_slice();
-        self.len() == slice.len() &&
-            self.cmp_bytes(slice.bytes(), slice.len()) == Equal
     }
 }
 
@@ -552,14 +569,14 @@ mod tests {
     fn test_append() {
         let mut rope = Rope::from_string("ab".to_string());
         rope.append_string("cd".to_string());
-        assert!(rope.equiv(&"abcd"));
+        assert!(&rope == "abcd");
     }
 
     #[test]
     fn test_prepend() {
         let mut rope = Rope::from_string("ab".to_string());
         rope.prepend_string("cd".to_string());
-        assert!(rope.equiv(&"cdab"));
+        assert!(&rope == "cdab");
     }
 
     #[test]
@@ -567,24 +584,24 @@ mod tests {
         let rope = Rope::from_string("abcd".to_string());
         // Split nothing at the front
         let (left, rope) = rope.split(0);
-        assert!(left.equiv(&""));
-        assert!(rope.equiv(&"abcd"));
+        assert!(&left == "");
+        assert!(&rope == "abcd");
 
         // Split nothing at the back
         let (rope, right) = rope.split(4);
-        assert!(rope.equiv(&"abcd"));
-        assert!(right.equiv(&""));
+        assert!(&rope == "abcd");
+        assert!(&right == "");
 
         let (left, right) = rope.split(2);
-        assert!(left.equiv(&"ab"));
-        assert!(right.equiv(&"cd"));
+        assert!(&left == "ab");
+        assert!(&right == "cd");
     }
 
     #[test]
     fn test_insert() {
         let mut rope = Rope::from_string("ab".to_string());
         rope.insert_string(1, "cd".to_string());
-        assert!(rope.equiv(&"acdb"));
+        assert!(&rope == "acdb");
     }
 
     fn example_rope() -> Rope {
@@ -599,17 +616,17 @@ mod tests {
         let mut rope = example_rope();
         // Delete nothing
         let deleted = rope.delete(0, 0);
-        assert!(rope.equiv(&"abcdefgh"));
-        assert!(deleted.equiv(&""));
+        assert!(&rope == "abcdefgh");
+        assert!(&deleted == "");
 
         let deleted = rope.delete(1, 3);
-        assert!(rope.equiv(&"adefgh"));
-        assert!(deleted.equiv(&"bc"));
+        assert!(&rope == "adefgh");
+        assert!(&deleted == "bc");
 
         // Delete everything
         let deleted = rope.delete(0, 6);
-        assert!(rope.equiv(&""));
-        assert!(deleted.equiv(&"adefgh"));
+        assert!(&rope == "");
+        assert!(&deleted == "adefgh");
     }
 
     #[test]
@@ -617,39 +634,39 @@ mod tests {
         let mut rope = example_rope();
         // Truncate nothing
         let (left, right) = rope.truncate(0, 8);
-        assert!(rope.equiv(&"abcdefgh"));
-        assert!(left.equiv(&""));
-        assert!(right.equiv(&""));
+        assert!(&rope == "abcdefgh");
+        assert!(&left == "");
+        assert!(&right == "");
 
         let (left, right) = rope.truncate(1, 7);
-        assert!(rope.equiv(&"bcdefg"));
-        assert!(left.equiv(&"a"));
-        assert!(right.equiv(&"h"));
+        assert!(&rope == "bcdefg");
+        assert!(&left == "a");
+        assert!(&right == "h");
 
         // Truncate everything
         let (left, right) = rope.truncate(3, 3);
-        assert!(rope.equiv(&""));
-        assert!(left.equiv(&"bcd"));
-        assert!(right.equiv(&"efg"));
+        assert!(&rope == "");
+        assert!(&left == "bcd");
+        assert!(&right == "efg");
 
     }
 
     #[test]
     fn test_substring() {
         let rope = example_rope();
-        assert!(rope.substring(1, 7).equiv(&"bcdefg"));
+        assert!(rope.substring(1, 7) == "bcdefg");
 
         // Empty substrings
-        assert!(rope.substring(0, 0).equiv(&""));
-        assert!(rope.substring(8, 8).equiv(&""));
-        assert!(rope.substring(4, 4).equiv(&""));
+        assert!(rope.substring(0, 0) == "");
+        assert!(rope.substring(8, 8) == "");
+        assert!(rope.substring(4, 4) == "");
 
         // Ensure slices are used when possible
         let sub = rope.substring(2, 6);
-        assert!(sub.is_slice() && sub.equiv(&"cdef"));
+        assert!(sub.is_borrowed() && sub == "cdef");
 
         let sub = rope.substring(3, 5);
-        assert!(sub.is_slice() && sub.equiv(&"de"));
+        assert!(sub.is_borrowed() && sub == "de");
     }
 
     #[test]
