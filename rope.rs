@@ -1,14 +1,14 @@
-#![feature(default_type_params)]
+#![feature(box_syntax, int_uint)]
+#![allow(unstable)]
 
 //! A rope for efficiently storing and manipulating large amounts of text.
 
 use std::borrow::Cow;
-use std::cmp::max;
+use std::cmp::{max, Ordering};
 use std::default::Default;
-use std::iter::FlatMap;
 use std::fmt;
 use std::mem;
-use std::str::{Bytes, Chars, CowString};
+use std::string::CowString;
 
 use self::Node::{Nil, Leaf, Branch};
 
@@ -247,31 +247,29 @@ impl Rope {
         RopeStrings { stack: vec!(&self.root) }
     }
 
-    /// Returns an iterator over the `char`s of the `Rope`.
-    #[inline]
-    pub fn chars(&self) -> RopeChars {
-        self.strings().flat_map(|s| s.chars())
-    }
-
-    /// Returns an iterator over the bytes of the `Rope`.
-    #[inline]
-    pub fn bytes(&self) -> RopeBytes {
-        self.strings().flat_map(|s| s.bytes())
-    }
-
     /// Returns a consuming iterator over the strings of the `Rope`.
     #[inline]
     pub fn into_strings(self) -> RopeMoveStrings {
         RopeMoveStrings { stack: vec!(self.root) }
     }
 
+    fn eq_bytes<T: Iterator<Item=u8>>(&self, bytes: T, len: uint) -> bool {
+        if self.len() == len {
+            let self_bytes = self.strings().flat_map(|s| s.bytes());
+            self_bytes.zip(bytes).all(|(a, b)| a == b)
+        } else {
+            false
+        }
+    }
+
     /// Compares the `Rope` against the `bytes` with the given `len`.
-    fn cmp_bytes<T: Iterator<u8>>(&self, bytes: T, len: uint) -> Ordering {
-        for (s_b, o_b) in self.bytes().zip(bytes) {
+    fn cmp_bytes<T: Iterator<Item=u8>>(&self, bytes: T, len: uint) -> Ordering {
+        let self_bytes = self.strings().flat_map(|s| s.bytes());
+        for (s_b, o_b) in self_bytes.zip(bytes) {
             match s_b.cmp(&o_b) {
-                Greater => return Greater,
-                Less => return Less,
-                Equal => (),
+                Ordering::Greater => return Ordering::Greater,
+                Ordering::Less => return Ordering::Less,
+                Ordering::Equal => (),
             }
         }
         self.len().cmp(&len)
@@ -291,7 +289,8 @@ impl Rope {
 impl Ord for Rope {
     #[inline]
     fn cmp(&self, other: &Rope) -> Ordering {
-        self.cmp_bytes(other.bytes(), other.len())
+        let other_bytes = other.strings().flat_map(|s| s.bytes());
+        self.cmp_bytes(other_bytes, other.len())
     }
 }
 
@@ -307,30 +306,22 @@ impl Eq for Rope { }
 impl PartialEq for Rope {
     #[inline]
     fn eq(&self, other: &Rope) -> bool {
-        self.len() == other.len() && self.cmp(other) == Equal
-    }
-}
-
-impl Ord<str> for Rope {
-    #[inline]
-    fn cmp(&self, other: &str) -> Ordering {
-        self.cmp_bytes(other.bytes(), other.len())
+        let other_bytes = other.strings().flat_map(|s| s.bytes());
+        self.eq_bytes(other_bytes, other.len())
     }
 }
 
 impl PartialOrd<str> for Rope {
     #[inline]
     fn partial_cmp(&self, other: &str) -> Option<Ordering> {
-        Some(self.cmp(other))
+        Some(self.cmp_bytes(other.bytes(), other.len()))
     }
 }
-
-impl Eq<str> for Rope { }
 
 impl PartialEq<str> for Rope {
     #[inline]
     fn eq(&self, other: &str) -> bool {
-        self.len() == other.len() && self.cmp(other) == Equal
+        self.eq_bytes(other.bytes(), other.len())
     }
 }
 
@@ -474,7 +465,9 @@ pub struct RopeStrings<'a> {
     stack: Vec<&'a Node>,
 }
 
-impl<'a> Iterator<&'a str> for RopeStrings<'a> {
+impl<'a> Iterator for RopeStrings<'a> {
+    type Item = &'a str;
+
     fn next(&mut self) -> Option<&'a str> {
         loop {
             match self.stack.pop() {
@@ -490,18 +483,14 @@ impl<'a> Iterator<&'a str> for RopeStrings<'a> {
     }
 }
 
-/// Iterator over the `char`s of a `Rope`.
-pub type RopeChars<'a> = FlatMap<'a, &'a str, RopeStrings<'a>, Chars<'a>>;
-
-/// Iterator over the bytes of a `Rope`.
-pub type RopeBytes<'a> = FlatMap<'a, &'a str, RopeStrings<'a>, Bytes<'a>>;
-
 /// Move iterator over the strings of a `Rope`.
 pub struct RopeMoveStrings {
     stack: Vec<Node>,
 }
 
-impl Iterator<String> for RopeMoveStrings {
+impl Iterator for RopeMoveStrings {
+    type Item = String;
+
     fn next(&mut self) -> Option<String> {
         loop {
             match self.stack.pop() {
@@ -530,7 +519,9 @@ impl<'a> RopeSubstrings<'a> {
     }
 }
 
-impl<'a> Iterator<&'a str> for RopeSubstrings<'a> {
+impl<'a> Iterator for RopeSubstrings<'a> {
+    type Item = &'a str;
+
     fn next(&mut self) -> Option<&'a str> {
         loop {
             let (offset, node) = match self.stack.pop() {
@@ -675,20 +666,6 @@ mod tests {
         assert_eq!(rope.strings().count(), 3);
         let expected = ["ab", "cdef", "gh"];
         assert!(rope.strings().zip(expected.iter()).all(|(a, &b)| a == b));
-    }
-
-    #[test]
-    fn test_bytes_iter() {
-        let rope = example_rope();
-        assert_eq!(rope.bytes().count(), 8);
-        assert!(rope.bytes().zip("abcdefgh".bytes()).all(|(a, b)| a == b));
-    }
-
-    #[test]
-    fn test_chars_iter() {
-        let rope = example_rope();
-        assert_eq!(rope.chars().count(), 8);
-        assert!(rope.chars().zip("abcdefgh".chars()).all(|(a, b)| a == b));
     }
 
     #[test]
