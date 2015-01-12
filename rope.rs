@@ -1,4 +1,3 @@
-#![feature(int_uint)]
 #![allow(unstable)]
 
 //! A rope for efficiently storing and manipulating large amounts of text.
@@ -100,7 +99,7 @@ impl Rope {
     /// assert!(&right == "cd");
     /// ```
     #[inline]
-    pub fn split(self, index: uint) -> (Rope, Rope) {
+    pub fn split(self, index: usize) -> (Rope, Rope) {
         assert!(index <= self.len());
         let (left, right) = self.root.split(index);
         (Rope { root: left }, Rope { root: right })
@@ -112,7 +111,7 @@ impl Rope {
     ///
     /// If `index` is greater than the length of the `Rope`.
     /// If `index` is not a valid character boundary.
-    pub fn insert(&mut self, index: uint, rope: Rope) {
+    pub fn insert(&mut self, index: usize, rope: Rope) {
         let len = self.len();
         if index == 0 {
             self.prepend(rope);
@@ -142,7 +141,7 @@ impl Rope {
     /// assert!(&rope == "acdb");
     /// ```
     #[inline]
-    pub fn insert_string(&mut self, index: uint, string: String) {
+    pub fn insert_string(&mut self, index: usize, string: String) {
         self.insert(index, Rope::from_string(string));
     }
 
@@ -162,7 +161,7 @@ impl Rope {
     /// rope.delete(1, 3);
     /// assert!(&rope == "ad");
     /// ```
-    pub fn delete(&mut self, start: uint, end: uint) -> Rope {
+    pub fn delete(&mut self, start: usize, end: usize) -> Rope {
         assert!(start <= end && end <= self.len());
         if start == end {
             // Why are you trying to delete nothing? Don't modify the rope
@@ -194,7 +193,7 @@ impl Rope {
     /// rope.truncate(1, 3);
     /// assert!(&rope == "bc");
     /// ```
-    pub fn truncate(&mut self, start: uint, end: uint) -> (Rope, Rope) {
+    pub fn truncate(&mut self, start: usize, end: usize) -> (Rope, Rope) {
         assert!(start <= end && end <= self.len());
         let root = self.take_root();
         // Extract ropes to the left and right of the truncation
@@ -220,7 +219,7 @@ impl Rope {
     /// assert!(rope.substring(2, 4) == "cd");
     /// ```
     #[inline]
-    pub fn substring(&self, start: uint, end: uint) -> CowString {
+    pub fn substring(&self, start: usize, end: usize) -> CowString {
         assert!(start <= end && end <= self.len());
         let mut substrings = RopeSubstrings::new(&self.root, start, end);
         let first = match substrings.next() {
@@ -253,7 +252,7 @@ impl Rope {
         RopeMoveStrings { stack: vec!(self.root) }
     }
 
-    fn eq_bytes<T: Iterator<Item=u8>>(&self, bytes: T, len: uint) -> bool {
+    fn eq_bytes<T: Iterator<Item=u8>>(&self, bytes: T, len: usize) -> bool {
         if self.len() == len {
             let self_bytes = self.strings().flat_map(|s| s.bytes());
             self_bytes.zip(bytes).all(|(a, b)| a == b)
@@ -263,7 +262,7 @@ impl Rope {
     }
 
     /// Compares the `Rope` against the `bytes` with the given `len`.
-    fn cmp_bytes<T: Iterator<Item=u8>>(&self, bytes: T, len: uint) -> Ordering {
+    fn cmp_bytes<T: Iterator<Item=u8>>(&self, bytes: T, len: usize) -> Ordering {
         let self_bytes = self.strings().flat_map(|s| s.bytes());
         for (s_b, o_b) in self_bytes.zip(bytes) {
             match s_b.cmp(&o_b) {
@@ -276,7 +275,7 @@ impl Rope {
     }
 
     #[inline]
-    pub fn len(&self) -> uint {
+    pub fn len(&self) -> usize {
         self.root.len()
     }
 
@@ -359,7 +358,7 @@ impl Node {
     }
 
     #[inline]
-    fn height(&self) -> uint {
+    fn height(&self) -> usize {
         match *self {
             Nil => 0,
             Leaf(_) => 1,
@@ -367,7 +366,7 @@ impl Node {
         }
     }
 
-    fn split(self, index: uint) -> (Node, Node) {
+    fn split(self, index: usize) -> (Node, Node) {
         if index == 0 {
             return (Nil, self)
         } else if index == self.len() {
@@ -408,7 +407,7 @@ impl Node {
     }
 
     #[inline]
-    fn len(&self) -> uint {
+    fn len(&self) -> usize {
         match *self {
             Nil => 0,
             Leaf(ref s) => s.len(),
@@ -420,8 +419,8 @@ impl Node {
 /// A `Concat` is a concatenation of two `Rope`s;
 /// `Concat`s are the internal nodes of the `Rope`'s tree.
 struct Concat {
-    len: uint,
-    height: uint,
+    len: usize,
+    height: usize,
     left: Node,
     right: Node,
 }
@@ -444,7 +443,7 @@ impl Concat {
     }
 
     #[inline]
-    fn split_left(&mut self, index: uint) -> Node {
+    fn split_left(&mut self, index: usize) -> Node {
         let left = mem::replace(&mut self.left, Nil);
         let (ll, lr) = left.split(index);
         self.left = lr;
@@ -453,7 +452,7 @@ impl Concat {
     }
 
     #[inline]
-    fn split_right(&mut self, index: uint) -> Node {
+    fn split_right(&mut self, index: usize) -> Node {
         let right = mem::replace(&mut self.right, Nil);
         let (rl, rr) = right.split(index);
         self.right = rl;
@@ -511,13 +510,13 @@ impl Iterator for RopeMoveStrings {
 
 /// Iterator over the strings of a `Rope`.
 pub struct RopeSubstrings<'a> {
-    start: uint,
-    end: uint,
-    stack: Vec<(uint, &'a Node)>,
+    start: usize,
+    end: usize,
+    stack: Vec<(usize, &'a Node)>,
 }
 
 impl<'a> RopeSubstrings<'a> {
-    fn new(root: &Node, start: uint, end: uint) -> RopeSubstrings {
+    fn new(root: &Node, start: usize, end: usize) -> RopeSubstrings {
         RopeSubstrings { start: start, end: end, stack: vec![(0, root)] }
     }
 }
