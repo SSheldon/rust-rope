@@ -1,4 +1,4 @@
-#![feature(box_syntax, int_uint)]
+#![feature(int_uint)]
 #![allow(unstable)]
 
 //! A rope for efficiently storing and manipulating large amounts of text.
@@ -354,7 +354,7 @@ impl Node {
         match (left, right) {
             (Nil, r) => r,
             (l, Nil) => l,
-            (l, r) => Branch(box Concat::new(l, r)),
+            (l, r) => Branch(Box::new(Concat::new(l, r))),
         }
     }
 
@@ -386,17 +386,19 @@ impl Node {
                     if index < left_len {
                         let left = cat.split_left(index);
                         // Check if cat no longer has a left child
-                        let right = match cat {
-                            box Concat { left: Nil, right: node, .. } => node,
-                            _ => Branch(cat),
+                        let right = if let Nil = cat.left {
+                            cat.right
+                        } else {
+                            Branch(cat)
                         };
                         (left, right)
                     } else {
                         let right = cat.split_right(index - left_len);
                         // Check if cat no longer has a right child
-                        let left = match cat {
-                            box Concat { left: node, right: Nil, .. } => node,
-                            _ => Branch(cat),
+                        let left = if let Nil = cat.right {
+                            cat.left
+                        } else {
+                            Branch(cat)
                         };
                         (left, right)
                     }
@@ -497,9 +499,10 @@ impl Iterator for RopeMoveStrings {
                 None => return None,
                 Some(Nil) => (),
                 Some(Leaf(s)) => return Some(s),
-                Some(Branch(box Concat { left: l, right: r, .. })) => {
-                    self.stack.push(r);
-                    self.stack.push(l);
+                Some(Branch(cat)) => {
+                    let cat = *cat;
+                    self.stack.push(cat.right);
+                    self.stack.push(cat.left);
                 }
             }
         }
