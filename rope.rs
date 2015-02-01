@@ -260,7 +260,8 @@ impl Rope {
         RopeMoveStrings { stack: vec!(self.root) }
     }
 
-    fn eq_bytes<T: Iterator<Item=u8>>(&self, bytes: T, len: usize) -> bool {
+    fn eq_bytes<T>(&self, bytes: T, len: usize) -> bool
+            where T: Iterator<Item=u8> {
         if self.len() == len {
             let self_bytes = self.strings().flat_map(|s| s.bytes());
             self_bytes.zip(bytes).all(|(a, b)| a == b)
@@ -270,7 +271,8 @@ impl Rope {
     }
 
     /// Compares the `Rope` against the `bytes` with the given `len`.
-    fn cmp_bytes<T: Iterator<Item=u8>>(&self, bytes: T, len: usize) -> Ordering {
+    fn cmp_bytes<T>(&self, bytes: T, len: usize) -> Ordering
+            where T: Iterator<Item=u8> {
         let self_bytes = self.strings().flat_map(|s| s.bytes());
         for (s_b, o_b) in self_bytes.zip(bytes) {
             match s_b.cmp(&o_b) {
