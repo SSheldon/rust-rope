@@ -50,6 +50,7 @@ impl Rope {
     /// # Example
     ///
     /// ``` rust
+    /// use rope::Rope;
     /// let mut rope = Rope::from_string("ab".to_string());
     /// rope.append_string("cd".to_string());
     /// assert!(&rope == "abcd");
@@ -73,6 +74,7 @@ impl Rope {
     /// # Example
     ///
     /// ``` rust
+    /// use rope::Rope;
     /// let mut rope = Rope::from_string("ab".to_string());
     /// rope.prepend_string("cd".to_string());
     /// assert!(&rope == "cdab");
@@ -93,6 +95,7 @@ impl Rope {
     /// # Example
     ///
     /// ``` rust
+    /// use rope::Rope;
     /// let rope = Rope::from_string("abcd".to_string());
     /// let (left, right) = rope.split(2);
     /// assert!(&left == "ab");
@@ -135,7 +138,9 @@ impl Rope {
     /// If `index` is not a valid character boundary.
     ///
     /// # Example
+    ///
     /// ``` rust
+    /// use rope::Rope;
     /// let mut rope = Rope::from_string("ab".to_string());
     /// rope.insert_string(1, "cd".to_string());
     /// assert!(&rope == "acdb");
@@ -157,6 +162,7 @@ impl Rope {
     /// # Example
     ///
     /// ``` rust
+    /// use rope::Rope;
     /// let mut rope = Rope::from_string("abcd".to_string());
     /// rope.delete(1, 3);
     /// assert!(&rope == "ad");
@@ -189,6 +195,7 @@ impl Rope {
     /// # Example
     ///
     /// ``` rust
+    /// use rope::Rope;
     /// let mut rope = Rope::from_string("abcd".to_string());
     /// rope.truncate(1, 3);
     /// assert!(&rope == "bc");
@@ -214,6 +221,7 @@ impl Rope {
     /// # Example
     ///
     /// ``` rust
+    /// use rope::Rope;
     /// let rope = Rope::from_string("abcd".to_string());
     /// assert!(rope.substring(0, 2) == "ab");
     /// assert!(rope.substring(2, 4) == "cd");
