@@ -1,4 +1,4 @@
-#![allow(unstable)]
+#![feature(collections, core)]
 
 //! A rope for efficiently storing and manipulating large amounts of text.
 
@@ -331,10 +331,10 @@ impl Default for Rope {
     }
 }
 
-impl fmt::Show for Rope {
+impl fmt::Display for Rope {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         self.strings()
-            .map(|s| s.fmt(f))
+            .map(|s| fmt::Display::fmt(s, f))
             .take_while(|r| r.is_ok())
             .last()
             .unwrap_or(Ok(()))
@@ -375,7 +375,7 @@ impl Node {
             match self {
                 Nil => (Nil, Nil),
                 Leaf(s) => {
-                    let right = s.as_slice().slice_from(index).to_string();
+                    let right = s[index..].to_string();
                     let mut left = s;
                     left.truncate(index);
                     (Leaf(left), Leaf(right))
@@ -474,7 +474,7 @@ impl<'a> Iterator for RopeStrings<'a> {
             match self.stack.pop() {
                 None => return None,
                 Some(&Nil) => (),
-                Some(&Leaf(ref s)) => return Some(s.as_slice()),
+                Some(&Leaf(ref s)) => return Some(&s),
                 Some(&Branch(ref cat)) => {
                     self.stack.push(&cat.right);
                     self.stack.push(&cat.left);
@@ -538,7 +538,7 @@ impl<'a> Iterator for RopeSubstrings<'a> {
                       else { self.end - offset };
             match *node {
                 Nil => (),
-                Leaf(ref s) => return Some(s.as_slice().slice(start, end)),
+                Leaf(ref s) => return Some(&s[start..end]),
                 Branch(ref cat) => {
                     let left_len = cat.left.len();
                     if end > left_len {
