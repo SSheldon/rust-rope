@@ -7,6 +7,7 @@ use std::cmp::{max, Ordering};
 use std::default::Default;
 use std::fmt;
 use std::mem;
+use std::ops::Range;
 use std::string::CowString;
 
 use self::Node::{Nil, Leaf, Branch};
@@ -150,7 +151,7 @@ impl Rope {
         self.insert(index, Rope::from_string(string));
     }
 
-    /// Deletes the substring of the `Rope` from `start` to `end`.
+    /// Deletes the substring of the `Rope` in `range`.
     /// Returns a `Rope` of the deleted substring.
     ///
     /// # Failure
@@ -164,10 +165,11 @@ impl Rope {
     /// ``` rust
     /// use rope::Rope;
     /// let mut rope = Rope::from_string("abcd".to_string());
-    /// rope.delete(1, 3);
+    /// rope.delete(1..3);
     /// assert!(&rope == "ad");
     /// ```
-    pub fn delete(&mut self, start: usize, end: usize) -> Rope {
+    pub fn delete(&mut self, range: Range<usize>) -> Rope {
+        let Range { start, end } = range;
         assert!(start <= end && end <= self.len());
         if start == end {
             // Why are you trying to delete nothing? Don't modify the rope
@@ -182,7 +184,7 @@ impl Rope {
         }
     }
 
-    /// Truncates the `Rope` to only the substring from `start` to `end`.
+    /// Truncates the `Rope` to only the substring in `range`.
     /// Returns the pair of `Rope`s removed from the beginning and end
     /// of the `Rope`.
     ///
@@ -197,10 +199,11 @@ impl Rope {
     /// ``` rust
     /// use rope::Rope;
     /// let mut rope = Rope::from_string("abcd".to_string());
-    /// rope.truncate(1, 3);
+    /// rope.truncate(1..3);
     /// assert!(&rope == "bc");
     /// ```
-    pub fn truncate(&mut self, start: usize, end: usize) -> (Rope, Rope) {
+    pub fn truncate(&mut self, range: Range<usize>) -> (Rope, Rope) {
+        let Range { start, end } = range;
         assert!(start <= end && end <= self.len());
         let root = self.take_root();
         // Extract ropes to the left and right of the truncation
@@ -210,7 +213,7 @@ impl Rope {
         (Rope { root: left }, Rope { root: right })
     }
 
-    /// Returns the substring of the `Rope` from `start` to `end`.
+    /// Returns the substring of the `Rope` in `range`.
     ///
     /// # Failure
     ///
@@ -223,11 +226,12 @@ impl Rope {
     /// ``` rust
     /// use rope::Rope;
     /// let rope = Rope::from_string("abcd".to_string());
-    /// assert!(rope.substring(0, 2) == "ab");
-    /// assert!(rope.substring(2, 4) == "cd");
+    /// assert!(rope.substring(0..2) == "ab");
+    /// assert!(rope.substring(2..4) == "cd");
     /// ```
     #[inline]
-    pub fn substring(&self, start: usize, end: usize) -> CowString {
+    pub fn substring(&self, range: Range<usize>) -> CowString {
+        let Range { start, end } = range;
         assert!(start <= end && end <= self.len());
         let mut substrings = RopeSubstrings::new(&self.root, start, end);
         let first = match substrings.next() {
@@ -618,16 +622,16 @@ mod tests {
     fn test_delete() {
         let mut rope = example_rope();
         // Delete nothing
-        let deleted = rope.delete(0, 0);
+        let deleted = rope.delete(0..0);
         assert!(&rope == "abcdefgh");
         assert!(&deleted == "");
 
-        let deleted = rope.delete(1, 3);
+        let deleted = rope.delete(1..3);
         assert!(&rope == "adefgh");
         assert!(&deleted == "bc");
 
         // Delete everything
-        let deleted = rope.delete(0, 6);
+        let deleted = rope.delete(0..6);
         assert!(&rope == "");
         assert!(&deleted == "adefgh");
     }
@@ -636,18 +640,18 @@ mod tests {
     fn test_truncate() {
         let mut rope = example_rope();
         // Truncate nothing
-        let (left, right) = rope.truncate(0, 8);
+        let (left, right) = rope.truncate(0..8);
         assert!(&rope == "abcdefgh");
         assert!(&left == "");
         assert!(&right == "");
 
-        let (left, right) = rope.truncate(1, 7);
+        let (left, right) = rope.truncate(1..7);
         assert!(&rope == "bcdefg");
         assert!(&left == "a");
         assert!(&right == "h");
 
         // Truncate everything
-        let (left, right) = rope.truncate(3, 3);
+        let (left, right) = rope.truncate(3..3);
         assert!(&rope == "");
         assert!(&left == "bcd");
         assert!(&right == "efg");
@@ -657,18 +661,18 @@ mod tests {
     #[test]
     fn test_substring() {
         let rope = example_rope();
-        assert!(rope.substring(1, 7) == "bcdefg");
+        assert!(rope.substring(1..7) == "bcdefg");
 
         // Empty substrings
-        assert!(rope.substring(0, 0) == "");
-        assert!(rope.substring(8, 8) == "");
-        assert!(rope.substring(4, 4) == "");
+        assert!(rope.substring(0..0) == "");
+        assert!(rope.substring(8..8) == "");
+        assert!(rope.substring(4..4) == "");
 
         // Ensure slices are used when possible
-        let sub = rope.substring(2, 6);
+        let sub = rope.substring(2..6);
         assert!(sub.is_borrowed() && sub == "cdef");
 
-        let sub = rope.substring(3, 5);
+        let sub = rope.substring(3..5);
         assert!(sub.is_borrowed() && sub == "de");
     }
 
