@@ -1,4 +1,4 @@
-#![feature(collections, core)]
+#![feature(core)]
 
 //! A rope for efficiently storing and manipulating large amounts of text.
 
