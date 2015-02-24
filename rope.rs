@@ -1,5 +1,3 @@
-#![feature(core)]
-
 //! A rope for efficiently storing and manipulating large amounts of text.
 
 use std::borrow::Cow;
@@ -8,7 +6,6 @@ use std::default::Default;
 use std::fmt;
 use std::mem;
 use std::ops::Range;
-use std::string::CowString;
 
 use self::Node::{Nil, Leaf, Branch};
 
@@ -230,7 +227,7 @@ impl Rope {
     /// assert!(rope.substring(2..4) == "cd");
     /// ```
     #[inline]
-    pub fn substring(&self, range: Range<usize>) -> CowString {
+    pub fn substring(&self, range: Range<usize>) -> Cow<str> {
         let Range { start, end } = range;
         assert!(start <= end && end <= self.len());
         let mut substrings = RopeSubstrings::new(&self.root, start, end);
@@ -570,6 +567,7 @@ impl<'a> Iterator for RopeSubstrings<'a> {
 
 #[cfg(test)]
 mod tests {
+    use std::borrow::Cow;
     use super::Rope;
 
     #[test]
@@ -670,10 +668,10 @@ mod tests {
 
         // Ensure slices are used when possible
         let sub = rope.substring(2..6);
-        assert!(sub.is_borrowed() && sub == "cdef");
+        assert!(if let Cow::Borrowed(s) = sub { s == "cdef" } else { false });
 
         let sub = rope.substring(3..5);
-        assert!(sub.is_borrowed() && sub == "de");
+        assert!(if let Cow::Borrowed(s) = sub { s == "de" } else { false });
     }
 
     #[test]
